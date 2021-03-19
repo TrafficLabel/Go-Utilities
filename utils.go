@@ -5,20 +5,20 @@
 package utils
 
 import (
-	"strings"
+	"bytes"
+	"encoding/json"
+	"github.com/dustin/go-humanize"
+	"github.com/fatih/color"
+	"io"
+	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
-	"io"
 	"os"
-	"strconv"
-	"time"
-	"io/ioutil"
-	"encoding/json"
-	"github.com/fatih/color"
-	"log"
-	"github.com/dustin/go-humanize"
-	"bytes"
 	"sort"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func ConvertToFloat(s string) float64 {
@@ -47,7 +47,7 @@ func Comma(v int64) string {
 	return humanize.Comma(v)
 }
 
-func BubbleSortDesc(arr []string)[]string {
+func BubbleSortDesc(arr []string) []string {
 	temp := ""
 	for i := 0; i < len(arr); i++ {
 		for j := 1; j < len(arr)-i; j++ {
@@ -59,13 +59,6 @@ func BubbleSortDesc(arr []string)[]string {
 		}
 	}
 	return arr
-}
-
-func CheckDBErr(err error, db string) {
-	if err != nil {
-		color.Red("Error connecting to database: %v\nError:%v ", db, err.Error())
-		return
-	}
 }
 
 func String(n int) string {
@@ -143,7 +136,7 @@ func DaysIn(m time.Month, year int) int {
 	return time.Date(year, m+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }
 
-func GetRealAddr(r *http.Request)  string {
+func GetRealAddr(r *http.Request) string {
 	remoteIP := ""
 	if parts := strings.Split(r.RemoteAddr, ":"); len(parts) == 2 {
 		remoteIP = parts[0]
@@ -164,7 +157,7 @@ func GetRealAddr(r *http.Request)  string {
 
 func DenyAccess(w http.ResponseWriter, data string) {
 	color.HiRed("[%v] Access Denied From: %v", time.Now().Format(time.RFC850), color.HiBlueString(data))
-	http.Error(w, "You can't access this from " + data, 401)
+	http.Error(w, "You can't access this from "+data, 401)
 }
 
 func RedirectToHome(w http.ResponseWriter, req *http.Request) {
@@ -176,8 +169,10 @@ func OpenFile(path string) (file io.ReadWriteCloser, err error) {
 	return
 }
 
-func Mode(mode []string) (string) {
-	if len(mode) == 0 {return ""}
+func Mode(mode []string) string {
+	if len(mode) == 0 {
+		return ""
+	}
 	var modeMap = map[string]int{}
 	var maxEl = mode[0]
 	var maxCount = 1
@@ -196,16 +191,15 @@ func Mode(mode []string) (string) {
 	return maxEl
 }
 
-type CurrencyResult struct {
-	Rates Rates `json:"rates"`
-}
-
-type Rates struct {
-	GBP float64 `json:"GBP"`
-}
-
 func GetExchangeRates(currency string, fallback float64) float64 {
-	re, err := http.Get("https://api.exchangeratesapi.io/latest?base="+currency)
+	type Rates struct {
+		GBP float64 `json:"GBP"`
+	}
+	type CurrencyResult struct {
+		Rates Rates `json:"rates"`
+	}
+	// FREE API!
+	re, err := http.Get("https://api.exchangeratesapi.io/latest?base=" + currency)
 	if err != nil {
 		log.Printf("Something went wrong getting the API: %v", err.Error())
 		return fallback
@@ -239,96 +233,47 @@ func GetDaysInMonth(month string, year int) int {
 	switch month {
 	case time.January.String():
 		return 31
-		break
 	case time.February.String():
-		wholeYear := time.Date(year, time.December, 31, 0, 0, 0, 0, time.Local)
-		days := wholeYear.YearDay()
-		if days > 365 {
+		daysInYear := time.Date(year, time.December, 31, 0, 0, 0, 0, time.Local).YearDay()
+		if daysInYear > 365 {
 			return 29
-			break
 		} else {
 			return 28
-			break
 		}
-		break
 	case time.March.String():
 		return 31
-		break
 	case time.April.String():
 		return 30
-		break
 	case time.May.String():
 		return 31
-		break
 	case time.June.String():
 		return 30
-		break
 	case time.July.String():
 		return 31
-		break
 	case time.August.String():
 		return 31
-		break
 	case time.September.String():
 		return 30
-		break
 	case time.October.String():
 		return 31
-		break
 	case time.November.String():
 		return 30
-		break
 	case time.December.String():
 		return 31
-		break
 	default:
 		break
 	}
 	return 31
 }
 
-func GetMonthFromName(month string) time.Month {
-	switch month {
-	case time.January.String():
-		return time.January
-		break
-	case time.February.String():
-		return time.February
-		break
-	case time.March.String():
-		return time.March
-		break
-	case time.April.String():
-		return time.April
-		break
-	case time.May.String():
-		return time.May
-		break
-	case time.June.String():
-		return time.June
-		break
-	case time.July.String():
-		return time.July
-		break
-	case time.August.String():
-		return time.August
-		break
-	case time.September.String():
-		return time.September
-		break
-	case time.October.String():
-		return time.October
-		break
-	case time.November.String():
-		return time.November
-		break
-	case time.December.String():
-		return time.December
-		break
-	default:
-		break
+func GetMonthFromName(month string) (t time.Month, err error) {
+	parsedMonth, err := time.Parse("January", month)
+	if err != nil {
+		log.Println(err.Error())
+		return t, err
+	} else {
+		return parsedMonth.Month(), nil
 	}
-	return time.January
 }
 
 func IntArrayToString(A []int, delim string) string {
@@ -349,21 +294,7 @@ func ReverseList(reversed []interface{}) []interface{} {
 	return reversed
 }
 
-func CurrencySymbol(country, currency string) string {
-	if country == "United Kingdom" {
-		return "£" + currency
-	}
-	if country == "Sweden" || country == "Norway" {
-		return currency + "kr"
-	}
-	if country == "Canada" || country == "New Zealand" {
-		return "$" + currency
-	} else {
-		return "€" + currency
-	}
-}
-
-func ParseCSVFile(fileName string) (*os.File) {
+func ParseCSVFile(fileName string) *os.File {
 	file, err := os.Open(fileName)
 	if err != nil {
 		log.Printf("err opening file, %v", err.Error())
@@ -382,4 +313,19 @@ func FormatDateWithSuffix(t time.Time) string {
 		suffix = "rd"
 	}
 	return t.Format("January 2" + suffix + ", 2006")
+}
+
+func DownloadAndSaveFile(filepath string, url string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
