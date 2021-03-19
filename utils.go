@@ -231,8 +231,11 @@ func JsonPrettyPrint(in string) string {
 
 func GetDaysInMonth(month string, year int) int {
 	switch month {
-	case time.January.String():
+	case time.January.String(), time.March.String(), time.May.String(), time.July.String(),
+		time.August.String(), time.October.String(), time.December.String():
 		return 31
+	case time.April.String(), time.June.String(), time.September.String(), time.November.String():
+		return 30
 	case time.February.String():
 		daysInYear := time.Date(year, time.December, 31, 0, 0, 0, 0, time.Local).YearDay()
 		if daysInYear > 365 {
@@ -240,30 +243,10 @@ func GetDaysInMonth(month string, year int) int {
 		} else {
 			return 28
 		}
-	case time.March.String():
-		return 31
-	case time.April.String():
-		return 30
-	case time.May.String():
-		return 31
-	case time.June.String():
-		return 30
-	case time.July.String():
-		return 31
-	case time.August.String():
-		return 31
-	case time.September.String():
-		return 30
-	case time.October.String():
-		return 31
-	case time.November.String():
-		return 30
-	case time.December.String():
-		return 31
 	default:
 		break
 	}
-	return 31
+	return 0
 }
 
 func GetMonthFromName(month string) (t time.Month, err error) {
